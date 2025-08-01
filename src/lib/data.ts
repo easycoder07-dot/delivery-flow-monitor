@@ -16,31 +16,30 @@ export interface ProjectData {
   developmentTeamName: string;
 }
 
-// Raw CSV data from Google Sheets
-const rawData = `Project ID,Customer Name,Customer Address,Customer Phone,Website Name,Project Price (INR),Negotiated,Delivered On Time,Delivery Date,Delivery Status,Tech Stack,Developers Needed,Assigned Developer(s),Development Team Name
-1,Meera Meera,Mumbai,9377664970,meerameera.tech.in,"₹172,964",Yes,Yes,21-Apr-2025,On Time,VueJS,3,"Meera, Rohan, Rohan",Team Sigma
-2,Kabir Dev,Hyderabad,9911068904,kabirdev.cloud.in,"₹1,171,387",No,No,14-Mar-2025,Delayed,NextJS,3,"Kabir, Aarav, Rohan",Team Hydra
-3,Meera Ishita,Kolkata,9595007137,meeraishita.solutions.in,"₹148,186",No,No,01-Aug-2025,In Progress,Laravel,2,"Rohan, Ishita",Team Orion
-4,Meera Meera,Hyderabad,9467628828,meerameera.solutions.in,"₹51,430",No,Yes,05-Jun-2025,On Time,VueJS,2,"Saanvi, Rohan",Team Orion
-5,Diya Anaya,Pune,9877512562,diyaanaya.services.in,"₹100,121",No,Yes,22-Feb-2025,On Time,VueJS,4,"Meera, Diya, Meera, Saanvi",Team Nova
-6,Diya Saanvi,Chennai,9800051301,diyasaanvi.services.in,"₹78,114",Yes,Yes,05-Aug-2025,In Progress,MERN,4,"Diya, Anaya, Saanvi, Meera",Team Nova
-7,Kabir Rohan,Delhi,9813473220,kabirrohan.services.in,"₹38,144",Yes,Yes,14-Apr-2025,On Time,Python-Django,4,"Kabir, Kabir, Aarav, Rohan",Team Orion
-8,Ayaan Kabir,Delhi,9826522448,ayaankabir.cloud.in,"₹59,104",No,Yes,03-Mar-2025,On Time,Python-Django,4,"Kabir, Ayaan, Anaya, Dev",Team Blaze
-9,Diya Ishita,Delhi,9802894569,diyaishita.services.in,"₹32,495",Yes,No,02-Aug-2025,In Progress,Laravel,3,"Dev, Ayaan, Diya",Team Orion
-10,Ayaan Rohan,Hyderabad,9747926360,ayaanrohan.tech.in,"₹98,890",No,Yes,09-Apr-2025,On Time,ReactJS,3,"Diya, Ayaan, Anaya",Team Orion
-11,Ayaan Rohan,Kolkata,9808791954,ayaanrohan.digital.in,"₹119,873",No,Yes,13-Jun-2025,On Time,ReactJS,3,"Ishita, Aarav, Dev",Team Falcon
-12,Ayaan Diya,Pune,9292061211,ayaandiya.solutions.in,"₹109,328",No,Yes,26-Aug-2025,In Progress,ReactJS,4,"Aarav, Saanvi, Dev, Dev",Team Hydra
-13,Saanvi Aarav,Chennai,9568762558,saanviaarav.digital.in,"₹66,137",Yes,Yes,15-Aug-2025,In Progress,NextJS,3,"Anaya, Ishita, Kabir",Team Nova
-14,Rohan Ayaan,Delhi,9291166473,rohanayaan.cloud.in,"₹61,738",No,Yes,18-Jul-2025,In Progress,NextJS,2,"Rohan, Ayaan",Team Falcon
-15,Diya Rohan,Mumbai,9434536912,diyarohan.solutions.in,"₹129,445",No,Yes,30-Mar-2025,On Time,Python-Django,2,"Anaya, Diya",Team Sigma
-16,Meera Saanvi,Hyderabad,9858568473,meerasaanvi.services.in,"₹159,772",Yes,Yes,09-Jul-2025,In Progress,Python-Django,4,"Rohan, Kabir, Ishita, Saanvi",Team Orion
-17,Dev Ishita,Kolkata,9965499071,devishita.tech.in,"₹69,892",No,Yes,16-Jun-2025,On Time,VueJS,2,"Saanvi, Anaya",Team Falcon
-18,Aarav Saanvi,Pune,9924159765,aaravsaanvi.tech.in,"₹130,663",No,No,07-May-2025,Delayed,ReactJS,4,"Meera, Saanvi, Anaya, Ayaan",Team Blaze
-19,Kabir Ishita,Chennai,9567014398,kabirishita.services.in,"₹78,359",Yes,Yes,24-Apr-2025,On Time,MERN,3,"Rohan, Diya, Meera",Team Blaze
-20,Ishita Anaya,Delhi,9612421962,ishitaanaya.tech.in,"₹161,950",No,No,11-Aug-2025,In Progress,Laravel,4,"Ishita, Saanvi, Anaya, Diya",Team Hydra`;
+// Google Sheets CSV export URL for real-time data
+const GOOGLE_SHEETS_CSV_URL = 'https://docs.google.com/spreadsheets/d/1iV8cC7yr1ttK6x4xdk0QjUdP-N48RyFjQbYnATirJR8/export?format=csv';
+
+// Cache for the fetched data to avoid repeated requests
+let cachedData: ProjectData[] | null = null;
+let lastFetchTime = 0;
+const CACHE_DURATION = 30000; // 30 seconds cache
 
 function parsePrice(priceStr: string): number {
+  // Handle both formats: with and without ₹ symbol
   return parseInt(priceStr.replace(/[₹,]/g, ''));
+}
+
+async function fetchGoogleSheetsData(): Promise<string> {
+  try {
+    const response = await fetch(GOOGLE_SHEETS_CSV_URL);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch data: ${response.status}`);
+    }
+    return await response.text();
+  } catch (error) {
+    console.error('Error fetching Google Sheets data:', error);
+    throw error;
+  }
 }
 
 function parseDate(dateStr: string): Date {
@@ -52,30 +51,82 @@ function parseDate(dateStr: string): Date {
   return new Date(parseInt(year), monthMap[month], parseInt(day));
 }
 
-export function parseProjectData(): ProjectData[] {
-  const lines = rawData.trim().split('\n');
-  const headers = lines[0].split(',');
+function parseCSVLine(line: string): string[] {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
   
-  return lines.slice(1).map(line => {
-    const values = line.split(',');
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    const nextChar = line[i + 1];
     
-    return {
-      projectId: parseInt(values[0]),
-      customerName: values[1],
-      customerAddress: values[2],
-      customerPhone: values[3],
-      websiteName: values[4],
-      projectPrice: parsePrice(values[5]),
-      negotiated: values[6] === 'Yes',
-      deliveredOnTime: values[7] === 'Yes',
-      deliveryDate: values[8],
-      deliveryStatus: values[9] as 'On Time' | 'Delayed' | 'In Progress',
-      techStack: values[10],
-      developersNeeded: parseInt(values[11]),
-      assignedDevelopers: values[12].replace(/"/g, ''),
-      developmentTeamName: values[13]
-    };
-  });
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        current += '"';
+        i++; // Skip the next quote
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === ',' && !inQuotes) {
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  
+  result.push(current.trim());
+  return result;
+}
+
+export async function parseProjectData(): Promise<ProjectData[]> {
+  // Check cache first
+  const now = Date.now();
+  if (cachedData && (now - lastFetchTime) < CACHE_DURATION) {
+    return cachedData;
+  }
+
+  try {
+    const csvData = await fetchGoogleSheetsData();
+    const lines = csvData.trim().split('\n');
+    
+    const data = lines.slice(1).map(line => {
+      const values = parseCSVLine(line);
+      
+      return {
+        projectId: parseInt(values[0]) || 0,
+        customerName: values[1] || '',
+        customerAddress: values[2] || '',
+        customerPhone: values[3] || '',
+        websiteName: values[4] || '',
+        projectPrice: parsePrice(values[5] || '0'),
+        negotiated: values[6] === 'Yes',
+        deliveredOnTime: values[7] === 'Yes',
+        deliveryDate: values[8] || '',
+        deliveryStatus: (values[9] as 'On Time' | 'Delayed' | 'In Progress') || 'In Progress',
+        techStack: values[10] || '',
+        developersNeeded: parseInt(values[11]) || 0,
+        assignedDevelopers: values[12]?.replace(/"/g, '') || '',
+        developmentTeamName: values[13] || ''
+      };
+    }).filter(project => project.projectId > 0); // Filter out invalid entries
+
+    // Update cache
+    cachedData = data;
+    lastFetchTime = now;
+    
+    return data;
+  } catch (error) {
+    console.error('Error parsing project data:', error);
+    // Return empty array if fetch fails
+    return [];
+  }
+}
+
+// Function to manually refresh cache
+export function refreshProjectData(): void {
+  cachedData = null;
+  lastFetchTime = 0;
 }
 
 export function calculateKPIs(data: ProjectData[]) {

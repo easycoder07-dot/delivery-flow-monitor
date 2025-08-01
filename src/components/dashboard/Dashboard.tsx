@@ -1,5 +1,8 @@
-import { useState, useMemo } from "react";
-import { ProjectData, parseProjectData, calculateKPIs, getProjectsByTeam, getDeliveryStatusDistribution, getTechStackDistribution, getMonthlyTrends } from "@/lib/data";
+import { useState, useMemo, useEffect } from "react";
+import { ProjectData, parseProjectData, calculateKPIs, getProjectsByTeam, getDeliveryStatusDistribution, getTechStackDistribution, getMonthlyTrends, refreshProjectData } from "@/lib/data";
+import { Button } from "@/components/ui/button";
+import { RefreshCw } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import { KPICard } from "./KPICard";
 import { ProjectsChart } from "./ProjectsChart";
 import { FilterPanel } from "./FilterPanel";
@@ -8,8 +11,56 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 export function Dashboard() {
-  const allData = parseProjectData();
-  const [filteredData, setFilteredData] = useState<ProjectData[]>(allData);
+  const [allData, setAllData] = useState<ProjectData[]>([]);
+  const [filteredData, setFilteredData] = useState<ProjectData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const { toast } = useToast();
+
+  // Load data on component mount
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async (showToast = false) => {
+    try {
+      setIsLoading(true);
+      const data = await parseProjectData();
+      setAllData(data);
+      setFilteredData(data);
+      if (showToast) {
+        toast({
+          title: "Data Refreshed",
+          description: `Loaded ${data.length} projects from Google Sheets`,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load data from Google Sheets",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    refreshProjectData(); // Clear cache
+    await loadData(true);
+  };
+
+  // Auto-refresh every 2 minutes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      handleRefresh();
+    }, 120000); // 2 minutes
+
+    return () => clearInterval(interval);
+  }, []);
 
   const kpis = useMemo(() => calculateKPIs(filteredData), [filteredData]);
   const teamData = useMemo(() => getProjectsByTeam(filteredData), [filteredData]);
@@ -42,12 +93,26 @@ export function Dashboard() {
                 📊 Project Management Dashboard
               </h1>
               <p className="text-muted-foreground mt-2">
-                Comprehensive overview of development projects and team performance
+                Real-time data from Google Sheets • Auto-refreshes every 2 minutes
               </p>
             </div>
-            <div className="text-right">
-              <div className="text-sm text-muted-foreground">Total Projects</div>
-              <div className="text-2xl font-bold text-primary">{filteredData.length}</div>
+            <div className="flex items-center gap-4">
+              <Button 
+                onClick={handleRefresh} 
+                disabled={isRefreshing}
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                {isRefreshing ? 'Refreshing...' : 'Refresh Data'}
+              </Button>
+              <div className="text-right">
+                <div className="text-sm text-muted-foreground">Total Projects</div>
+                <div className="text-2xl font-bold text-primary">
+                  {isLoading ? '...' : filteredData.length}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -63,8 +128,17 @@ export function Dashboard() {
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
-            {/* KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <RefreshCw className="h-5 w-5 animate-spin" />
+                  Loading real-time data...
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* KPI Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <KPICard
                 title="Total Project Value"
                 value={`₹${kpis.totalPrice.toLocaleString()}`}
@@ -118,6 +192,8 @@ export function Dashboard() {
                 type="bar"
               />
             </div>
+              </>
+            )}
           </TabsContent>
 
           <TabsContent value="analytics" className="space-y-6">
