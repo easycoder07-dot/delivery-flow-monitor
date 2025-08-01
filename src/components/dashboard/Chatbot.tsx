@@ -19,7 +19,7 @@ export function Chatbot() {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  const WEBHOOK_URL = "https://soumya07yt.app.n8n.cloud/webhook-test/KPIS";
+  const WEBHOOK_URL = "https://soumya07yt.app.n8n.cloud/webhook-test/dfsfasdasd";
 
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
