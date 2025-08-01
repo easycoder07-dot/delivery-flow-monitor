@@ -7,6 +7,7 @@ import { KPICard } from "./KPICard";
 import { ProjectsChart } from "./ProjectsChart";
 import { FilterPanel } from "./FilterPanel";
 import { ProjectTable } from "./ProjectTable";
+import { Chatbot } from "./Chatbot";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -166,8 +167,8 @@ export function Dashboard() {
               />
             </div>
 
-            {/* Charts Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Charts and Chatbot Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <ProjectsChart
                 data={teamData}
                 title="📈 Projects by Development Team"
@@ -178,6 +179,9 @@ export function Dashboard() {
                 title="📊 Delivery Status Distribution"
                 type="pie"
               />
+              <div className="lg:row-span-2">
+                <Chatbot />
+              </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
