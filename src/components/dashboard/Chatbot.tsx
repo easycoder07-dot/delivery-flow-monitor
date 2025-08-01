@@ -99,8 +99,10 @@ export function Chatbot() {
         </CardTitle>
       </CardHeader>
       
-      <CardContent className="flex flex-col flex-1 gap-4 p-4">
-        <ScrollArea className="flex-1 h-[400px] pr-4">
+      <CardContent className="flex flex-col flex-1 gap-4 p-4 overflow-hidden">
+
+        <ScrollArea className="flex-1 overflow-y-auto pr-4">
+
           <div className="space-y-4">
             {messages.length === 0 && (
               <div className="text-center text-muted-foreground py-8">
