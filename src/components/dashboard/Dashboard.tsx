@@ -7,7 +7,7 @@ import { KPICard } from "./KPICard";
 import { ProjectsChart } from "./ProjectsChart";
 import { FilterPanel } from "./FilterPanel";
 import { ProjectTable } from "./ProjectTable";
-import { Chatbot } from "./Chatbot";
+import { FloatingChatbot } from "../FloatingChatbot";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -179,9 +179,11 @@ export function Dashboard() {
                 title="📊 Delivery Status Distribution"
                 type="pie"
               />
-              <div className="lg:row-span-2">
-                <Chatbot />
-              </div>
+              <ProjectsChart
+                data={techData.map(item => ({ name: item.tech, count: item.count }))}
+                title="🛠️ Technology Stack Usage"
+                type="bar"
+              />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -252,6 +254,9 @@ export function Dashboard() {
           </TabsContent>
         </Tabs>
       </div>
+      
+      {/* Floating Chatbot */}
+      <FloatingChatbot />
     </div>
   );
 }
